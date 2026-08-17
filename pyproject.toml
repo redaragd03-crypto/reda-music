@@ -1,0 +1,16 @@
+[project]
+name = "reda-music"
+version = "11.1.0"
+description = "REDA MUSIC - Offline local music player"
+requires-python = ">=3.10"
+dependencies = [
+    "flet==0.86.1",
+    "flet-audio==0.86.1",
+    "mutagen>=1.47.0",
+]
+
+[tool.flet]
+product = "REDA MUSIC"
+org = "com.reda.music"
+company = "REDA"
+description = "مشغل موسيقى محلي بدون إنترنت"
