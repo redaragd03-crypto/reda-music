@@ -2526,8 +2526,14 @@ def main(page: ft.Page):
     # ---------------------------
     def nav_button(label, icon, view_name, callback):
         active = state["view"] == view_name
+        mobile = is_mobile()
+
         return ft.Button(
-            content=label,
+            content=ft.Text(
+                label,
+                size=9 if mobile else 14,
+                no_wrap=True,
+            ),
             icon=icon,
             style=ft.ButtonStyle(
                 bgcolor=(
@@ -2535,6 +2541,10 @@ def main(page: ft.Page):
                 ),
                 color=(
                     GREEN if active else "#A1A5A8"
+                ),
+                padding=ft.Padding.symmetric(
+                    horizontal=4 if mobile else 10,
+                    vertical=5 if mobile else 8,
                 ),
             ),
             on_click=callback,
@@ -2573,8 +2583,10 @@ def main(page: ft.Page):
                 lambda e: playlists_view(),
             ),
         ],
-        spacing=4,
-        scroll=ft.ScrollMode.AUTO,
+        spacing=2,
+        run_spacing=2,
+        alignment=ft.MainAxisAlignment.CENTER,
+        wrap=True,
     )
 
     # ---------------------------
@@ -2712,16 +2724,46 @@ def main(page: ft.Page):
             on_click=import_songs,
         )
 
-        header.content = ft.Row(
-            [
-                brand,
-                ft.Container(expand=True),
-                navigation,
-                add_button,
-            ],
-            spacing=7 if mobile else 12,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-        )
+        if mobile:
+            # Mobile: put navigation on its own full-width row.
+            # This prevents the RTL horizontal overflow from hiding
+            # the "الرئيسية" button on narrow phone screens.
+            header.content = ft.Column(
+                [
+                    ft.Row(
+                        [
+                            brand,
+                            ft.Container(expand=True),
+                            add_button,
+                        ],
+                        spacing=7,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    ft.Container(
+                        width=float("inf"),
+                        padding=ft.Padding.only(
+                            left=0,
+                            right=0,
+                            top=2,
+                            bottom=0,
+                        ),
+                        content=navigation,
+                    ),
+                ],
+                spacing=3,
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            )
+        else:
+            header.content = ft.Row(
+                [
+                    brand,
+                    ft.Container(expand=True),
+                    navigation,
+                    add_button,
+                ],
+                spacing=12,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
 
     def handle_resize(e=None):
         update_responsive_padding()
