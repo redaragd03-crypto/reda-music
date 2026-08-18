@@ -922,6 +922,24 @@ def main(page: ft.Page):
         ),
     )
 
+    # Responsive layout helper. Flet reports the current client width on
+    # desktop and Android, so the same code can use a compact mobile layout.
+    def is_mobile():
+        try:
+            return (page.width or 1000) < 700
+        except Exception:
+            return False
+
+    def update_responsive_padding():
+        if is_mobile():
+            content_area.padding = ft.Padding.only(
+                left=12, right=12, top=14, bottom=10
+            )
+        else:
+            content_area.padding = ft.Padding.only(
+                left=22, right=22, top=18, bottom=12
+            )
+
     # ---------------------------
     # Player controls
     # ---------------------------
@@ -968,7 +986,7 @@ def main(page: ft.Page):
         min=0,
         max=1,
         value=1,
-        width=95,
+        width=75,
         active_color=GREEN,
         inactive_color="#34373A",
         thumb_color=GREEN,
@@ -1837,8 +1855,10 @@ def main(page: ft.Page):
         )
 
     def mini_card(song):
+        card_width = 158 if is_mobile() else 210
+        cover_size = 138 if is_mobile() else 190
         return ft.Container(
-            width=210,
+            width=card_width,
             bgcolor=SURFACE,
             border=ft.Border.all(1, BORDER),
             border_radius=18,
@@ -1846,7 +1866,7 @@ def main(page: ft.Page):
             on_click=lambda e, s=song: page.run_task(song_click, e, s),
             content=ft.Column(
                 [
-                    cover_widget(song, 190, 14),
+                    cover_widget(song, cover_size, 14),
                     ft.Text(
                         song["title"],
                         color=WHITE,
@@ -1879,115 +1899,117 @@ def main(page: ft.Page):
     # ---------------------------
     def home_view():
         state["view"] = "home"
+        mobile = is_mobile()
         all_songs = get_songs("all")
         recent = get_songs("recent")[:8]
         favorites = get_songs("favorites")
         playlists = get_playlists()
 
-        hero_content = [
-            ft.Container(
-                bgcolor="#00000099",
-                border_radius=24,
-                padding=24,
-                content=ft.Column(
-                    [
-                        ft.Row(
-                            [
-                                ft.Container(
-                                    bgcolor="#D9B36C22",
-                                    border_radius=10,
-                                    padding=ft.Padding.symmetric(
-                                        horizontal=10,
-                                        vertical=6,
-                                    ),
-                                    content=ft.Text(
-                                        "CHESS • MUSIC • OFFLINE",
-                                        color=GOLD,
-                                        size=8,
-                                        weight=ft.FontWeight.BOLD,
-                                    ),
-                                ),
-                            ]
+        hero_width = max(280, (page.width or 360) - (24 if mobile else 44))
+        hero_height = 360 if mobile else 280
+        hero_title_size = 27 if mobile else 31
+        hero_sub_size = 13 if mobile else 15
+
+        hero_content = ft.Container(
+            bgcolor="#00000099",
+            border_radius=20,
+            padding=18 if mobile else 24,
+            content=ft.Column(
+                [
+                    ft.Container(
+                        bgcolor="#D9B36C22",
+                        border_radius=10,
+                        padding=ft.Padding.symmetric(
+                            horizontal=10, vertical=6
                         ),
-                        ft.Text(
-                            "REDA MUSIC",
-                            color=WHITE,
-                            size=31,
+                        content=ft.Text(
+                            "CHESS • MUSIC • OFFLINE",
+                            color=GOLD,
+                            size=8,
                             weight=ft.FontWeight.BOLD,
                         ),
-                        ft.Text(
-                            "موسيقاك. مكتبتك. على جهازك.",
-                            color="#E7E7E3",
-                            size=15,
-                            weight=ft.FontWeight.W_500,
-                        ),
-                        ft.Text(
-                            "استمتع بأغانيك المفضلة بدون حساب وبدون إنترنت.",
-                            color="#BFC3C4",
-                            size=10,
-                        ),
-                        ft.Row(
-                            [
-                                ft.Button(
-                                    content="تشغيل الموسيقى",
-                                    icon=ft.Icons.PLAY_ARROW_ROUNDED,
-                                    on_click=play_all_click,
-                                ),
-                                ft.Button(
-                                    content="إضافة أغنية",
-                                    icon=ft.Icons.ADD_ROUNDED,
-                                    on_click=import_songs,
-                                ),
-                            ],
-                            spacing=8,
-                        ),
-                    ],
-                    spacing=8,
-                ),
-            )
-        ]
+                    ),
+                    ft.Text(
+                        "REDA MUSIC",
+                        color=WHITE,
+                        size=hero_title_size,
+                        weight=ft.FontWeight.BOLD,
+                    ),
+                    ft.Text(
+                        "موسيقاك. مكتبتك. على جهازك.",
+                        color="#E7E7E3",
+                        size=hero_sub_size,
+                        weight=ft.FontWeight.W_500,
+                    ),
+                    ft.Text(
+                        "استمتع بأغانيك المفضلة بدون حساب وبدون إنترنت.",
+                        color="#BFC3C4",
+                        size=10,
+                    ),
+                    ft.Row(
+                        [
+                            ft.Button(
+                                content="تشغيل الموسيقى",
+                                icon=ft.Icons.PLAY_ARROW_ROUNDED,
+                                on_click=play_all_click,
+                            ),
+                            ft.Button(
+                                content="إضافة أغنية",
+                                icon=ft.Icons.ADD_ROUNDED,
+                                on_click=import_songs,
+                            ),
+                        ],
+                        spacing=8,
+                        wrap=True,
+                    ),
+                ],
+                spacing=7,
+            ),
+        )
 
         if HERO_IMAGE:
             hero = ft.Container(
-                height=280,
+                width=hero_width,
+                height=hero_height,
                 border_radius=24,
                 clip_behavior=ft.ClipBehavior.HARD_EDGE,
                 content=ft.Stack(
-                    [
+                    width=hero_width,
+                    height=hero_height,
+                    controls=[
                         ft.Image(
                             src=HERO_IMAGE,
-                            expand=True,
+                            width=hero_width,
+                            height=hero_height,
                             fit="cover",
                         ),
                         ft.Container(
-                            expand=True,
-                            bgcolor="#05050555",
+                            width=hero_width,
+                            height=hero_height,
+                            bgcolor="#05050566",
                         ),
                         ft.Container(
-                            expand=True,
-                            padding=18,
-                            content=ft.Column(
-                                hero_content,
-                                alignment=ft.MainAxisAlignment.END,
-                            ),
+                            width=hero_width,
+                            height=hero_height,
+                            padding=14 if mobile else 18,
+                            alignment=ft.Alignment(0, 1),
+                            content=hero_content,
                         ),
-                    ]
+                    ],
                 ),
             )
         else:
             hero = ft.Container(
-                height=280,
+                width=hero_width,
+                height=hero_height,
                 bgcolor="#171A1C",
                 border_radius=24,
                 padding=24,
-                content=hero_content[0],
+                content=hero_content,
             )
 
         recent_controls = (
-            [
-                mini_card(song)
-                for song in recent
-            ]
+            [mini_card(song) for song in recent]
             if recent
             else [
                 ft.Container(
@@ -2000,102 +2022,95 @@ def main(page: ft.Page):
             ]
         )
 
+        greeting = ft.Column(
+            [
+                ft.Text(
+                    "صباح الخير 👋",
+                    color=MUTED,
+                    size=10,
+                ),
+                ft.Text(
+                    "جاهز للموسيقى؟",
+                    color=WHITE,
+                    size=22 if not mobile else 20,
+                    weight=ft.FontWeight.BOLD,
+                ),
+            ],
+            spacing=2,
+            expand=True,
+        )
+
+        offline = ft.Container(
+            bgcolor=GREEN_SOFT,
+            border_radius=12,
+            padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+            content=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.OFFLINE_BOLT_ROUNDED,
+                        color=GREEN,
+                        size=17,
+                    ),
+                    ft.Text(
+                        "Offline",
+                        color=GREEN,
+                        size=9,
+                        weight=ft.FontWeight.BOLD,
+                    ),
+                ],
+                spacing=5,
+            ),
+        )
+
+        header_row = ft.Row(
+            [greeting, offline],
+            spacing=8,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+        stats = ft.Row(
+            [
+                stat_card(len(all_songs), "أغنية", ft.Icons.MUSIC_NOTE_ROUNDED),
+                stat_card(len(favorites), "مفضلة", ft.Icons.FAVORITE_ROUNDED),
+                stat_card(len(playlists), "قائمة تشغيل", ft.Icons.QUEUE_MUSIC_ROUNDED),
+            ],
+            spacing=8 if mobile else 10,
+            wrap=mobile,
+        )
+
+        recent_header = ft.Row(
+            [
+                ft.Text(
+                    "تم تشغيلها مؤخرًا",
+                    color=WHITE,
+                    size=17,
+                    weight=ft.FontWeight.BOLD,
+                ),
+                ft.Container(expand=True),
+                ft.Button(
+                    content="عرض الكل",
+                    on_click=lambda e: (
+                        state.update({"view": "recent"}),
+                        recent_view(),
+                    ),
+                ),
+            ]
+        )
+
         content_area.content = ft.Column(
             [
-                ft.Row(
-                    [
-                        ft.Column(
-                            [
-                                ft.Text(
-                                    "صباح الخير 👋",
-                                    color=MUTED,
-                                    size=10,
-                                ),
-                                ft.Text(
-                                    "جاهز للموسيقى؟",
-                                    color=WHITE,
-                                    size=22,
-                                    weight=ft.FontWeight.BOLD,
-                                ),
-                            ],
-                            spacing=2,
-                            expand=True,
-                        ),
-                        ft.Container(
-                            bgcolor=GREEN_SOFT,
-                            border_radius=12,
-                            padding=ft.Padding.symmetric(
-                                horizontal=12,
-                                vertical=8,
-                            ),
-                            content=ft.Row(
-                                [
-                                    ft.Icon(
-                                        ft.Icons.OFFLINE_BOLT_ROUNDED,
-                                        color=GREEN,
-                                        size=17,
-                                    ),
-                                    ft.Text(
-                                        "Offline",
-                                        color=GREEN,
-                                        size=9,
-                                        weight=ft.FontWeight.BOLD,
-                                    ),
-                                ],
-                                spacing=5,
-                            ),
-                        ),
-                    ]
-                ),
+                header_row,
                 hero,
-                ft.Row(
-                    [
-                        stat_card(
-                            len(all_songs),
-                            "أغنية",
-                            ft.Icons.MUSIC_NOTE_ROUNDED,
-                        ),
-                        stat_card(
-                            len(favorites),
-                            "مفضلة",
-                            ft.Icons.FAVORITE_ROUNDED,
-                        ),
-                        stat_card(
-                            len(playlists),
-                            "قائمة تشغيل",
-                            ft.Icons.QUEUE_MUSIC_ROUNDED,
-                        ),
-                    ],
-                    spacing=10,
-                ),
-                ft.Row(
-                    [
-                        ft.Text(
-                            "تم تشغيلها مؤخرًا",
-                            color=WHITE,
-                            size=17,
-                            weight=ft.FontWeight.BOLD,
-                        ),
-                        ft.Container(expand=True),
-                        ft.Button(
-                            content="عرض الكل",
-                            on_click=lambda e: (
-                                state.update(
-                                    {"view": "recent"}
-                                ),
-                                recent_view(),
-                            ),
-                        ),
-                    ]
-                ),
+                stats,
+                recent_header,
                 ft.Row(
                     recent_controls,
-                    spacing=10,
+                    spacing=8 if mobile else 10,
                     scroll=ft.ScrollMode.AUTO,
                 ),
             ],
             expand=True,
-            spacing=12,
+            spacing=10 if mobile else 12,
             scroll=ft.ScrollMode.AUTO,
         )
         page.update()
@@ -2565,68 +2580,77 @@ def main(page: ft.Page):
     # ---------------------------
     # Player
     # ---------------------------
-    player_bar.content = ft.Column(
-        [
-            ft.Row(
-                [
-                    player_cover,
-                    ft.Column(
-                        [
-                            player_title,
-                            player_artist,
-                        ],
-                        spacing=2,
-                        expand=True,
-                    ),
-                    ft.IconButton(
-                        icon=ft.Icons.STOP_CIRCLE_OUTLINED,
-                        icon_color="#8B9094",
-                        tooltip="إيقاف",
-                        on_click=stop_audio,
-                    ),
-                ],
-                spacing=10,
-            ),
-            ft.Row(
-                [
-                    position_text,
-                    progress,
-                    duration_text,
-                ],
-                spacing=7,
-            ),
-            ft.Row(
-                [
-                    shuffle_button,
-                    ft.IconButton(
-                        icon=ft.Icons.SKIP_PREVIOUS_ROUNDED,
-                        icon_color=WHITE,
-                        icon_size=23,
-                        tooltip="السابق",
-                        on_click=lambda e: page.run_task(previous_song),
-                    ),
-                    play_pause_button,
-                    ft.IconButton(
-                        icon=ft.Icons.SKIP_NEXT_ROUNDED,
-                        icon_color=WHITE,
-                        icon_size=23,
-                        tooltip="التالي",
-                        on_click=lambda e: page.run_task(next_song),
-                    ),
-                    repeat_button,
-                    ft.Icon(
-                        ft.Icons.VOLUME_UP_ROUNDED,
-                        size=18,
-                        color="#74797D",
-                    ),
-                    volume_slider,
-                ],
-                alignment=ft.MainAxisAlignment.CENTER,
-                spacing=3,
-            ),
-        ],
-        spacing=2,
-    )
+    def rebuild_player_bar():
+        mobile = is_mobile()
+        player_cover.width = 46 if mobile else 52
+        player_cover.height = 46 if mobile else 52
+        player_cover.border_radius = 11 if mobile else 12
+        player_title.size = 12 if mobile else 13
+        volume_slider.width = 55 if mobile else 95
+
+        player_bar.padding = ft.Padding.symmetric(
+            horizontal=10 if mobile else 18,
+            vertical=7 if mobile else 10,
+        )
+
+        player_bar.content = ft.Column(
+            [
+                ft.Row(
+                    [
+                        player_cover,
+                        ft.Column(
+                            [player_title, player_artist],
+                            spacing=2,
+                            expand=True,
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.STOP_CIRCLE_OUTLINED,
+                            icon_color="#8B9094",
+                            tooltip="إيقاف",
+                            on_click=stop_audio,
+                        ),
+                    ],
+                    spacing=8 if mobile else 10,
+                ),
+                ft.Row(
+                    [position_text, progress, duration_text],
+                    spacing=5 if mobile else 7,
+                ),
+                ft.Row(
+                    [
+                        shuffle_button,
+                        ft.IconButton(
+                            icon=ft.Icons.SKIP_PREVIOUS_ROUNDED,
+                            icon_color=WHITE,
+                            icon_size=21 if mobile else 23,
+                            tooltip="السابق",
+                            on_click=lambda e: page.run_task(previous_song),
+                        ),
+                        play_pause_button,
+                        ft.IconButton(
+                            icon=ft.Icons.SKIP_NEXT_ROUNDED,
+                            icon_color=WHITE,
+                            icon_size=21 if mobile else 23,
+                            tooltip="التالي",
+                            on_click=lambda e: page.run_task(next_song),
+                        ),
+                        repeat_button,
+                        ft.Icon(
+                            ft.Icons.VOLUME_UP_ROUNDED,
+                            size=16 if mobile else 18,
+                            color="#74797D",
+                        ),
+                        volume_slider,
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=1 if mobile else 3,
+                ),
+            ],
+            spacing=2,
+        )
+
+    rebuild_player_bar()
+
 
     # ---------------------------
     # Header
@@ -2637,57 +2661,80 @@ def main(page: ft.Page):
             bottom=ft.BorderSide(1, BORDER)
         ),
         padding=ft.Padding.symmetric(
-            horizontal=22,
-            vertical=12,
-        ),
-        content=ft.Row(
-            [
-                ft.Row(
-                    [
-                        ft.Container(
-                            width=42,
-                            height=42,
-                            bgcolor="#1B241D",
-                            border_radius=13,
-                            alignment=ft.Alignment(0, 0),
-                            content=ft.Icon(
-                                ft.Icons.MUSIC_NOTE_ROUNDED,
-                                color=GREEN,
-                                size=23,
-                            ),
-                        ),
-                        ft.Column(
-                            [
-                                ft.Text(
-                                    "REDA MUSIC",
-                                    color=WHITE,
-                                    size=15,
-                                    weight=ft.FontWeight.BOLD,
-                                ),
-                                ft.Text(
-                                    "LOCAL MUSIC PLAYER",
-                                    color="#666B6F",
-                                    size=7,
-                                    weight=ft.FontWeight.BOLD,
-                                ),
-                            ],
-                            spacing=0,
-                        ),
-                    ],
-                    spacing=9,
-                    expand=True,
-                ),
-                navigation,
-                ft.Button(
-                    content="إضافة",
-                    icon=ft.Icons.ADD_ROUNDED,
-                    on_click=import_songs,
-                ),
-            ],
-            spacing=12,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            horizontal=12,
+            vertical=8,
         ),
     )
+
+    def rebuild_header():
+        mobile = is_mobile()
+
+        brand = ft.Row(
+            [
+                ft.Container(
+                    width=38 if mobile else 42,
+                    height=38 if mobile else 42,
+                    bgcolor="#1B241D",
+                    border_radius=12,
+                    alignment=ft.Alignment(0, 0),
+                    content=ft.Icon(
+                        ft.Icons.MUSIC_NOTE_ROUNDED,
+                        color=GREEN,
+                        size=21 if mobile else 23,
+                    ),
+                ),
+                ft.Column(
+                    [
+                        ft.Text(
+                            "REDA MUSIC",
+                            color=WHITE,
+                            size=14,
+                            weight=ft.FontWeight.BOLD,
+                        ),
+                        ft.Text(
+                            "LOCAL MUSIC PLAYER",
+                            color="#666B6F",
+                            size=7,
+                            weight=ft.FontWeight.BOLD,
+                        ),
+                    ],
+                    spacing=0,
+                    visible=not mobile,
+                ),
+            ],
+            spacing=8,
+        )
+
+        add_button = ft.Button(
+            content="" if mobile else "إضافة",
+            icon=ft.Icons.ADD_ROUNDED,
+            tooltip="إضافة أغنية",
+            on_click=import_songs,
+        )
+
+        header.content = ft.Row(
+            [
+                brand,
+                ft.Container(expand=True),
+                navigation,
+                add_button,
+            ],
+            spacing=7 if mobile else 12,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    def handle_resize(e=None):
+        update_responsive_padding()
+        rebuild_header()
+        rebuild_player_bar()
+        if state.get("view", "home") == "home":
+            home_view()
+        else:
+            refresh_current_view()
+
+    page.on_resized = handle_resize
+    update_responsive_padding()
+    rebuild_header()
 
     # Start the background audio monitor only once.
     page.run_task(audio_monitor)
