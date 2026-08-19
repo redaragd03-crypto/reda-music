@@ -23,7 +23,62 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Build APK
+      - name: Generate Android project
+        shell: bash
+        run: |
+          uv run flet build apk --yes --verbose
+
+      - name: Add audio file support to Android
+        shell: bash
+        run: |
+          MANIFEST="build/flutter/android/app/src/main/AndroidManifest.xml"
+
+          if [ ! -f "$MANIFEST" ]; then
+            echo "AndroidManifest.xml not found!"
+            exit 1
+          fi
+
+          python - <<'PY'
+          from pathlib import Path
+
+          manifest = Path("build/flutter/android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text(encoding="utf-8")
+
+          intent_filter = """
+              <intent-filter>
+                  <action android:name="android.intent.action.VIEW" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <data android:mimeType="audio/*" />
+              </intent-filter>
+          """
+
+          marker = """
+              <intent-filter>
+                  <action android:name="android.intent.action.MAIN" />
+                  <category android:name="android.intent.category.LAUNCHER" />
+              </intent-filter>
+          """
+
+          if "android:mimeType=\"audio/*\"" in text:
+              print("Audio intent-filter already exists.")
+          elif marker in text:
+              text = text.replace(
+                  marker,
+                  marker + intent_filter,
+                  1
+              )
+              manifest.write_text(text, encoding="utf-8")
+              print("Audio intent-filter added successfully.")
+          else:
+              raise SystemExit(
+                  "Could not find the launcher intent-filter."
+              )
+          PY
+
+          echo "----- AndroidManifest.xml -----"
+          grep -A8 -B3 'audio/\*' "$MANIFEST" || true
+
+      - name: Rebuild APK with audio support
         shell: bash
         run: |
           uv run flet build apk --yes --verbose
