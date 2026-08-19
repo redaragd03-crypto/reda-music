@@ -28,8 +28,10 @@ jobs:
         run: |
           if [ -n "$ANDROID_HOME" ] && [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
           elif [ -n "$ANDROID_SDK_ROOT" ] && [ -f "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
             yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
           else
             SDKMANAGER=$(find "$ANDROID_HOME" "$ANDROID_SDK_ROOT" \
               -type f -name sdkmanager 2>/dev/null | head -n 1)
@@ -55,8 +57,7 @@ jobs:
             --verbose \
             --arch arm64-v8a \
             --cleanup-app \
-            --cleanup-packages \
-            --android-legacy-packaging
+            --cleanup-packages
 
       - name: Show APK size
         shell: bash
