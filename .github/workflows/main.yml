@@ -23,119 +23,50 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Generate Flet Android project
+      - name: Accept Android licenses
         shell: bash
         run: |
-          uv run flet build apk --yes --verbose --arch arm64-v8a
+          if [ -n "$ANDROID_HOME" ] && [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          elif [ -n "$ANDROID_SDK_ROOT" ] && [ -f "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          else
+            SDKMANAGER=$(find "$ANDROID_HOME" "$ANDROID_SDK_ROOT" \
+              -type f -name sdkmanager 2>/dev/null | head -n 1)
 
-      - name: Configure Android to receive audio files
-        shell: bash
-        run: |
-          MANIFEST="build/flutter/android/app/src/main/AndroidManifest.xml"
-
-          if [ ! -f "$MANIFEST" ]; then
-            echo "ERROR: AndroidManifest.xml not found"
-            exit 1
+            if [ -n "$SDKMANAGER" ]; then
+              yes | "$SDKMANAGER" --licenses || true
+            else
+              echo "sdkmanager not found"
+              exit 1
+            fi
           fi
 
-          python - <<'PY'
-          from pathlib import Path
-          import re
+      - name: Clean previous Flet build
+        shell: bash
+        run: |
+          uv run flet clean
 
-          manifest = Path(
-              "build/flutter/android/app/src/main/AndroidManifest.xml"
-          )
-
-          text = manifest.read_text(encoding="utf-8")
-
-          audio_filter = """
-              <intent-filter>
-                  <action android:name="android.intent.action.VIEW" />
-                  <category android:name="android.intent.category.DEFAULT" />
-                  <category android:name="android.intent.category.BROWSABLE" />
-                  <data android:mimeType="audio/*" />
-              </intent-filter>
-          """
-
-          # Don't add it twice
-          if 'android:mimeType="audio/*"' in text:
-              print("Audio intent-filter already exists.")
-              raise SystemExit(0)
-
-          # Find the Flutter MainActivity.
-          activity_pattern = re.compile(
-              r'(<activity\b[^>]*android:name="[^"]*MainActivity"[^>]*>)',
-              re.MULTILINE
-          )
-
-          match = activity_pattern.search(text)
-
-          if not match:
-              print("ERROR: MainActivity was not found.")
-              print("Activities found:")
-
-              for m in re.finditer(
-                  r'<activity\b[^>]*android:name="([^"]+)"',
-                  text
-              ):
-                  print(" -", m.group(1))
-
-              raise SystemExit(1)
-
-          activity_start = match.end()
-
-          # Find the closing tag belonging to this activity.
-          depth = 1
-          pos = activity_start
-
-          tag_pattern = re.compile(r'<(/?)activity\b[^>]*>', re.MULTILINE)
-
-          closing_position = None
-
-          for tag in tag_pattern.finditer(text, activity_start):
-              full_tag = tag.group(0)
-
-              if full_tag.startswith("</"):
-                  depth -= 1
-
-                  if depth == 0:
-                      closing_position = tag.start()
-                      break
-
-              elif not full_tag.rstrip().endswith("/>"):
-                  depth += 1
-
-          if closing_position is None:
-              print("ERROR: Could not locate MainActivity closing tag.")
-              raise SystemExit(1)
-
-          text = (
-              text[:closing_position]
-              + audio_filter
-              + text[closing_position:]
-          )
-
-          manifest.write_text(text, encoding="utf-8")
-
-          print("Audio intent-filter added successfully.")
-          PY
-
-          echo "Checking AndroidManifest..."
-          grep -n -A8 -B3 'audio/\*' "$MANIFEST"
-
-      - name: Build final APK
+      - name: Build REDA MUSIC ARM64 APK
         shell: bash
         run: |
           uv run flet build apk \
             --yes \
             --verbose \
             --arch arm64-v8a \
-            --cleanup-app
+            --cleanup-app \
+            --cleanup-packages \
+            --android-legacy-packaging
 
       - name: Show APK size
         shell: bash
         run: |
+          echo "======================================"
+          echo "        REDA MUSIC APK SIZE"
+          echo "======================================"
           ls -lh build/apk/*.apk
+          du -h build/apk/*.apk
+          echo "======================================"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
