@@ -26,7 +26,7 @@ jobs:
       - name: Generate Flet Android project
         shell: bash
         run: |
-          uv run flet build apk --yes --verbose --python-version 3.12
+          uv run flet build apk --yes --verbose --arch arm64-v8a
 
       - name: Configure Android to receive audio files
         shell: bash
@@ -34,7 +34,7 @@ jobs:
           MANIFEST="build/flutter/android/app/src/main/AndroidManifest.xml"
 
           if [ ! -f "$MANIFEST" ]; then
-            echo "AndroidManifest.xml not found!"
+            echo "ERROR: AndroidManifest.xml not found"
             exit 1
           fi
 
@@ -42,112 +42,105 @@ jobs:
           from pathlib import Path
           import re
 
-          manifest = Path("build/flutter/android/app/src/main/AndroidManifest.xml")
-          text = manifest.read_text(encoding="utf-8")
-
-          # Reuse the same Activity instance when Android sends another file.
-          text = re.sub(
-              r'(<activity\s+android:name="\.MainActivity"[^>]*?)(\s*/?>)',
-              lambda m: (
-                  m.group(1)
-                  if 'android:launchMode=' in m.group(1)
-                  else m.group(1) + ' android:launchMode="singleTop"'
-              ) + m.group(2),
-              text,
-              count=1,
+          manifest = Path(
+              "build/flutter/android/app/src/main/AndroidManifest.xml"
           )
 
-          audio_filter = '''
+          text = manifest.read_text(encoding="utf-8")
+
+          audio_filter = """
               <intent-filter>
                   <action android:name="android.intent.action.VIEW" />
                   <category android:name="android.intent.category.DEFAULT" />
-                  <data android:scheme="content" android:mimeType="audio/*" />
+                  <category android:name="android.intent.category.BROWSABLE" />
+                  <data android:mimeType="audio/*" />
               </intent-filter>
-              <intent-filter>
-                  <action android:name="android.intent.action.VIEW" />
-                  <category android:name="android.intent.category.DEFAULT" />
-                  <data android:scheme="file" android:mimeType="audio/*" />
-              </intent-filter>
-          '''
+          """
 
-          if 'android:mimeType="audio/*"' not in text:
-              marker = '''
-              <intent-filter>
-                  <action android:name="android.intent.action.MAIN" />
-                  <category android:name="android.intent.category.LAUNCHER" />
-              </intent-filter>
-          '''
-              if marker not in text:
-                  raise SystemExit("Could not find launcher intent-filter in AndroidManifest.xml")
-              text = text.replace(marker, marker + audio_filter, 1)
-
-          manifest.write_text(text, encoding="utf-8")
-          print("Android audio intent filters configured.")
-          PY
-
-          echo "----- audio intent filters -----"
-          grep -A6 -B2 'audio/\\*' "$MANIFEST" || true
-
-      - name: Keep the latest Android intent when app is already open
-        shell: bash
-        run: |
-          ACTIVITY_FILE=$(find build/flutter/android/app/src/main -type f \( -name "MainActivity.kt" -o -name "MainActivity.java" \) | head -n 1)
-
-          if [ -z "$ACTIVITY_FILE" ]; then
-            echo "MainActivity source not found!"
-            exit 1
-          fi
-
-          python - "$ACTIVITY_FILE" <<'PY'
-          from pathlib import Path
-          import sys
-
-          path = Path(sys.argv[1])
-          text = path.read_text(encoding="utf-8")
-
-          if "setIntent(intent)" in text and "onNewIntent" in text:
-              print("onNewIntent handler already exists.")
+          # Don't add it twice
+          if 'android:mimeType="audio/*"' in text:
+              print("Audio intent-filter already exists.")
               raise SystemExit(0)
 
-          if path.suffix == ".kt":
-              method = """
-          
-              override fun onNewIntent(intent: android.content.Intent) {
-                  super.onNewIntent(intent)
-                  setIntent(intent)
-              }
-              """
-          else:
-              method = """
-          
-              @Override
-              protected void onNewIntent(android.content.Intent intent) {
-                  super.onNewIntent(intent);
-                  setIntent(intent);
-              }
-              """
-          
-          pos = text.rfind("}")
-          if pos < 0:
-              raise SystemExit("Could not find MainActivity closing brace.")
+          # Find the Flutter MainActivity.
+          activity_pattern = re.compile(
+              r'(<activity\b[^>]*android:name="[^"]*MainActivity"[^>]*>)',
+              re.MULTILINE
+          )
 
-          text = text[:pos] + method + text[pos:]
-          path.write_text(text, encoding="utf-8")
-          print(f"Updated {path}")
+          match = activity_pattern.search(text)
+
+          if not match:
+              print("ERROR: MainActivity was not found.")
+              print("Activities found:")
+
+              for m in re.finditer(
+                  r'<activity\b[^>]*android:name="([^"]+)"',
+                  text
+              ):
+                  print(" -", m.group(1))
+
+              raise SystemExit(1)
+
+          activity_start = match.end()
+
+          # Find the closing tag belonging to this activity.
+          depth = 1
+          pos = activity_start
+
+          tag_pattern = re.compile(r'<(/?)activity\b[^>]*>', re.MULTILINE)
+
+          closing_position = None
+
+          for tag in tag_pattern.finditer(text, activity_start):
+              full_tag = tag.group(0)
+
+              if full_tag.startswith("</"):
+                  depth -= 1
+
+                  if depth == 0:
+                      closing_position = tag.start()
+                      break
+
+              elif not full_tag.rstrip().endswith("/>"):
+                  depth += 1
+
+          if closing_position is None:
+              print("ERROR: Could not locate MainActivity closing tag.")
+              raise SystemExit(1)
+
+          text = (
+              text[:closing_position]
+              + audio_filter
+              + text[closing_position:]
+          )
+
+          manifest.write_text(text, encoding="utf-8")
+
+          print("Audio intent-filter added successfully.")
           PY
+
+          echo "Checking AndroidManifest..."
+          grep -n -A8 -B3 'audio/\*' "$MANIFEST"
 
       - name: Build final APK
         shell: bash
         run: |
-          cd build/flutter
-          flutter build apk --release
-          mkdir -p ../apk
-          cp build/app/outputs/flutter-apk/app-release.apk ../apk/REDA-MUSIC.apk
+          uv run flet build apk \
+            --yes \
+            --verbose \
+            --arch arm64-v8a \
+            --cleanup-app
+
+      - name: Show APK size
+        shell: bash
+        run: |
+          ls -lh build/apk/*.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: REDA-MUSIC-APK
-          path: build/apk/REDA-MUSIC.apk
+          name: REDA-MUSIC-ARM64
+          path: build/apk/*.apk
           if-no-files-found: error
           retention-days: 30
