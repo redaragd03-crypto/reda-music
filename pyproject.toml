@@ -7,6 +7,7 @@ dependencies = [
     "flet==0.86.1",
     "flet-audio==0.86.1",
     "mutagen>=1.47.0",
+    "pyjnius==1.7.0",
 ]
 
 [tool.flet]
